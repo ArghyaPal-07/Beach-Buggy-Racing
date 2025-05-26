@@ -1,7 +1,7 @@
 # 🏖️ Beach Buggy Racing 🏎️
 
 A thrilling browser-based racing game where you dodge obstacles on a sandy beach highway for 60 intense seconds!
-https://beach-buggy-racing.tiiny.site/
+Live link: https://beach-buggy-racing.tiiny.site/
 
 ## 🎮 How to Play
 
