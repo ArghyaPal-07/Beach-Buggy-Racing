@@ -1,5 +1,3 @@
-Here's your text with all the asterisks removed:
-
 # 🏖️ Beach Buggy Racing 🏎️
 
 A thrilling browser-based racing game where you dodge obstacles on a sandy beach highway for 60 intense seconds!
