@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beach Buggy Racing</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #87CEEB, #F0E68C);
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .game-container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+        }
+        
+        h1 {
+            color: #2C3E50;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        canvas {
+            border: 4px solid #34495E;
+            border-radius: 10px;
+            background: linear-gradient(180deg, #87CEEB 0%, #F0E68C 100%);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        
+        .controls {
+            margin-top: 15px;
+            color: #2C3E50;
+            font-weight: bold;
+        }
+        
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            display: none;
+        }
+        
+        button {
+            background: #3498DB;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #2980B9;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🏖️ Beach Buggy Racing 🏎️</h1>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div class="controls">
+            Use Arrow Keys to Move • Avoid Obstacles for 60 Seconds!
+        </div>
+        <div class="game-over" id="gameOver">
+            <h2>Game Over!</h2>
+            <p id="finalScore"></p>
+            <button onclick="restartGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Game state variables
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let gameRunning = false;
+        let score = 0;
+        let highScore = 0;
+        let timeLeft = 60;
+        let lastTime = 0;
+        let obstacleSpeed = 2;
+        let lastSpeedIncrease = 0;
+
+        // Player car object
+        const player = {
+            x: canvas.width / 2 - 25,
+            y: canvas.height - 80,
+            width: 50,
+            height: 60,
+            color: '#FF6B6B'
+        };
+
+        // Arrays to store game objects
+        const obstacles = [];
+        const keys = {};
+
+        // Initialize high score from memory
+        function initHighScore() {
+            const saved = parseInt(localStorage.getItem('beachBuggyHighScore')) || 0;
+            highScore = saved;
+        }
+
+        // Save high score to memory
+        function saveHighScore() {
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('beachBuggyHighScore', highScore.toString());
+            }
+        }
+
+        // Handle keyboard input
+        document.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+
+        // Create a new obstacle at random position
+        function createObstacle() {
+            const types = [
+                { color: '#E74C3C', width: 45, height: 55 }, // Red car
+                { color: '#9B59B6', width: 55, height: 65 }, // Purple bus
+                { color: '#F39C12', width: 40, height: 40 }  // Orange blocker
+            ];
+            
+            const type = types[Math.floor(Math.random() * types.length)];
+            const obstacle = {
+                x: Math.random() * (canvas.width - type.width),
+                y: -type.height,
+                width: type.width,
+                height: type.height,
+                color: type.color,
+                scored: false
+            };
+            
+            obstacles.push(obstacle);
+        }
+
+        // Update player position based on input
+        function updatePlayer() {
+            const speed = 5;
+            
+            if (keys['ArrowLeft'] && player.x > 0) {
+                player.x -= speed;
+            }
+            if (keys['ArrowRight'] && player.x < canvas.width - player.width) {
+                player.x += speed;
+            }
+            if (keys['ArrowUp'] && player.y > 0) {
+                player.y -= speed;
+            }
+            if (keys['ArrowDown'] && player.y < canvas.height - player.height) {
+                player.y += speed;
+            }
+        }
+
+        // Update obstacle positions and handle scoring
+        function updateObstacles() {
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obstacle = obstacles[i];
+                obstacle.y += obstacleSpeed;
+                
+                // Award point when player passes obstacle
+                if (!obstacle.scored && obstacle.y > player.y + player.height) {
+                    score++;
+                    obstacle.scored = true;
+                }
+                
+                // Remove obstacles that are off screen
+                if (obstacle.y > canvas.height) {
+                    obstacles.splice(i, 1);
+                }
+            }
+        }
+
+        // Check collision between player and obstacles
+        function checkCollisions() {
+            for (const obstacle of obstacles) {
+                if (player.x < obstacle.x + obstacle.width &&
+                    player.x + player.width > obstacle.x &&
+                    player.y < obstacle.y + obstacle.height &&
+                    player.y + player.height > obstacle.y) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Draw player car with simple design
+        function drawPlayer() {
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            
+            // Add car details
+            ctx.fillStyle = '#2C3E50';
+            ctx.fillRect(player.x + 5, player.y + 10, player.width - 10, 15);
+            ctx.fillRect(player.x + 5, player.y + 35, player.width - 10, 15);
+            
+            // Wheels
+            ctx.fillStyle = '#34495E';
+            ctx.fillRect(player.x - 3, player.y + 8, 8, 12);
+            ctx.fillRect(player.x + player.width - 5, player.y + 8, 8, 12);
+            ctx.fillRect(player.x - 3, player.y + 40, 8, 12);
+            ctx.fillRect(player.x + player.width - 5, player.y + 40, 8, 12);
+        }
+
+        // Draw all obstacles with simple designs
+        function drawObstacles() {
+            obstacles.forEach(obstacle => {
+                ctx.fillStyle = obstacle.color;
+                ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+                
+                // Add vehicle details based on size
+                ctx.fillStyle = '#2C3E50';
+                if (obstacle.width > 50) { // Bus
+                    ctx.fillRect(obstacle.x + 5, obstacle.y + 10, obstacle.width - 10, 12);
+                    ctx.fillRect(obstacle.x + 5, obstacle.y + 30, obstacle.width - 10, 12);
+                } else if (obstacle.width > 45) { // Car
+                    ctx.fillRect(obstacle.x + 3, obstacle.y + 8, obstacle.width - 6, 10);
+                    ctx.fillRect(obstacle.x + 3, obstacle.y + 25, obstacle.width - 6, 10);
+                } else { // Blocker
+                    ctx.fillStyle = '#E67E22';
+                    ctx.fillRect(obstacle.x + 5, obstacle.y + 5, obstacle.width - 10, obstacle.height - 10);
+                }
+            });
+        }
+
+        // Draw road markings for visual effect
+        function drawRoad() {
+            ctx.strokeStyle = '#F1C40F';
+            ctx.lineWidth = 4;
+            ctx.setLineDash([20, 20]);
+            
+            for (let i = 0; i < 4; i++) {
+                const x = (canvas.width / 5) * (i + 1);
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+        }
+
+        // Draw UI elements (score, time, etc.)
+        function drawUI() {
+            ctx.fillStyle = '#2C3E50';
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText(`Score: ${score}`, 20, 35);
+            ctx.fillText(`High Score: ${highScore}`, canvas.width - 200, 35);
+            ctx.fillText(`Time: ${timeLeft}s`, canvas.width / 2 - 50, 35);
+            
+            // Speed indicator
+            ctx.font = '16px Arial';
+            ctx.fillText(`Speed Level: ${Math.floor(obstacleSpeed)}`, 20, canvas.height - 20);
+        }
+
+        // Main game loop
+        function gameLoop(currentTime) {
+            if (!gameRunning) return;
+            
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+            
+            // Update timer
+            if (currentTime % 1000 < 16) { // Roughly every second
+                timeLeft = Math.max(0, timeLeft - 1);
+                if (timeLeft <= 0) {
+                    endGame();
+                    return;
+                }
+            }
+            
+            // Increase speed every 15 seconds
+            const speedLevel = Math.floor((60 - timeLeft) / 15);
+            if (speedLevel > lastSpeedIncrease) {
+                obstacleSpeed += 1;
+                lastSpeedIncrease = speedLevel;
+            }
+            
+            // Spawn obstacles randomly
+            if (Math.random() < 0.02 + (obstacleSpeed * 0.005)) {
+                createObstacle();
+            }
+            
+            // Update game objects
+            updatePlayer();
+            updateObstacles();
+            
+            // Check for collisions
+            if (checkCollisions()) {
+                endGame();
+                return;
+            }
+            
+            // Clear and draw everything
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawRoad();
+            drawObstacles();
+            drawPlayer();
+            drawUI();
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // End the current game
+        function endGame() {
+            gameRunning = false;
+            saveHighScore();
+            
+            document.getElementById('finalScore').textContent = 
+                `Final Score: ${score} | High Score: ${highScore}`;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        // Start a new game
+        function startGame() {
+            gameRunning = true;
+            score = 0;
+            timeLeft = 60;
+            obstacleSpeed = 2;
+            lastSpeedIncrease = 0;
+            obstacles.length = 0;
+            
+            player.x = canvas.width / 2 - 25;
+            player.y = canvas.height - 80;
+            
+            document.getElementById('gameOver').style.display = 'none';
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Restart game function
+        function restartGame() {
+            startGame();
+        }
+
+        // Initialize and start the game
+        initHighScore();
+        startGame();
+    </script>
+</body>
+</html>
